@@ -3,11 +3,12 @@ gem 'redis', '>= 2.0.3'
 require 'redis'
 
 class RRDSimple
-  def initialize(opts)
+  def initialize(opts,&callback)
     @buckets = opts[:buckets]
     @step = opts[:step]
     @debug = opts[:debug] || false
     @db = opts[:db] || Redis.new
+    @callback = callback
   end
 
   def current_epoch
@@ -87,9 +88,12 @@ class RRDSimple
     bucket_key(k, current_bucket)
   end
 
-  def incr(k, val=1)
-    debug [:incr, epoch(k), val]
-    @db.incrby(epoch(k), val).to_i
+  def incr( key, value = 1 )
+    debug [:incr, epoch( key ), value ]
+    epoch_key = epoch( key )
+    increased_value = @db.incrby( epoch_key, value ).to_i
+    @callback.call( epoch_key, increased_value ) unless @callback.nil?
+    return increased_value
   end
 
   def set(k, val)
